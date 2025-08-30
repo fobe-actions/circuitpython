@@ -1,0 +1,25 @@
+name: Build PR
+on:
+  pull_request:
+
+permissions:
+  contents: read
+  packages: write
+  id-token: write
+  attestations: write
+
+jobs:
+  docker-amd64:
+    strategy:
+      fail-fast: false
+      matrix:
+        cpy_platform:
+          - nordic
+          - espressif
+    uses: ./.github/workflows/docker_build.yml
+    with:
+      cpy_platform: ${{ matrix.cpy_platform }}
+      platform: linux/amd64
+      runs-on: ubuntu-24.04
+      push: false
+    secrets: inherit

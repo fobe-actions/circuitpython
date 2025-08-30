@@ -1,8 +1,6 @@
 FROM python:3.13-bookworm AS base
 
 ENV PIP_ROOT_USER_ACTION=ignore
-ENV ARM_TOOLCHAIN_EABI_VERSION=14.2.rel1
-ENV ARM_TOOLCHAIN_ELF_VERSION=13.3.rel1
 
 # Apt dependencies
 RUN apt-get update && apt-get install -y \
@@ -10,11 +8,44 @@ RUN apt-get update && apt-get install -y \
     libgpiod-dev libyaml-cpp-dev libbluetooth-dev libusb-1.0-0-dev libi2c-dev libuv1-dev \
     libx11-dev libinput-dev libxkbcommon-x11-dev \
     openssl libssl-dev libulfius-dev liborcania-dev \
-    git git-lfs gettext cmake mtools floppyd dosfstools \
+    git git-lfs gettext cmake mtools floppyd dosfstools ninja-build \
     && rm -rf /var/lib/apt/lists/*
 
-# Install ARM toolchain (EABI) based on architecture
-RUN ARCH=$(dpkg --print-architecture) && \
+FROM base AS repo
+ARG BUILD_REPO="https://github.com/adafruit/circuitpython.git"
+ARG BUILD_REF="main"
+ARG BUILD_FORK_REPO="https://github.com/fobe-projects/circuitpython.git"
+ARG BUILD_FORK_REF="main"
+
+WORKDIR /workspace
+
+RUN git config --global --add safe.directory /workspace \
+    && git clone --depth 1 --filter=tree:0 "${BUILD_REPO}" /workspace \
+    && cd /workspace && git checkout "${BUILD_REF}" \
+    && git submodule update --init --filter=blob:none data extmod lib tools frozen \
+    && git fetch --no-recurse-submodules --shallow-since="2021-07-01" --tags "${BUILD_REPO}" HEAD \
+    && git fetch --no-recurse-submodules --shallow-since="2021-07-01" origin \
+    && git repack -d \
+    && git remote add fork "${BUILD_FORK_REPO}" \
+    && git fetch fork --filter=tree:0 \
+    && git fetch --no-recurse-submodules --filter=tree:0 fork "${BUILD_FORK_REF}" \
+    && git checkout -b fork-branch "fork/${BUILD_FORK_REF}" \
+    && git repack -d
+
+RUN pip3 install --upgrade -r requirements-doc.txt \
+    && pip3 install --upgrade -r requirements-dev.txt \
+    && pip3 install --upgrade huffman
+
+FROM repo AS port
+
+ARG ARM_TOOLCHAIN_EABI_VERSION="14.2.rel1"
+ARG ARM_TOOLCHAIN_ELF_VERSION="13.3.rel1"
+ARG BUILD_PLATFORM
+
+RUN make -C ports/"${BUILD_PLATFORM}" fetch-port-submodules
+
+RUN if [ "${BUILD_PLATFORM}" != "espressif" ] && [ "${BUILD_PLATFORM}" != "zephyr-cp" ] && [ "${BUILD_PLATFORM}" != "litex" ] && [ "${BUILD_PLATFORM}" != "none" ]; then \
+    ARCH=$(dpkg --print-architecture) && \
     if [ "$ARCH" = "arm64" ]; then \
         TOOLCHAIN_URL="https://developer.arm.com/-/media/Files/downloads/gnu/$ARM_TOOLCHAIN_EABI_VERSION/binrel/arm-gnu-toolchain-$ARM_TOOLCHAIN_EABI_VERSION-aarch64-arm-none-eabi.tar.xz"; \
     elif [ "$ARCH" = "amd64" ]; then \
@@ -27,10 +58,12 @@ RUN ARCH=$(dpkg --print-architecture) && \
     curl -fsSL "$TOOLCHAIN_URL" | tar -xJ -C /usr/local/arm-none-eabi --strip-components=1 && \
     for f in /usr/local/arm-none-eabi/bin/arm-none-eabi-*; do \
         ln -sf "$f" /usr/local/bin/$(basename "$f"); \
-    done
+    done \
+fi
 
-# Install ARM toolchain (ELF) based on architecture
-RUN ARCH=$(dpkg --print-architecture) && \
+# Broadcom
+RUN if [ "${BUILD_PLATFORM}" = "broadcom" ]; then \
+    ARCH=$(dpkg --print-architecture) && \
     if [ "$ARCH" = "arm64" ]; then \
         TOOLCHAIN_URL="https://developer.arm.com/-/media/Files/downloads/gnu/$ARM_TOOLCHAIN_ELF_VERSION/binrel/arm-gnu-toolchain-$ARM_TOOLCHAIN_ELF_VERSION-aarch64-aarch64-none-elf.tar.xz"; \
     elif [ "$ARCH" = "amd64" ]; then \
@@ -43,35 +76,49 @@ RUN ARCH=$(dpkg --print-architecture) && \
     curl -fsSL "$TOOLCHAIN_URL" | tar -xJ -C /usr/local/arm-none-elf --strip-components=1 && \
     for f in /usr/local/arm-none-elf/bin/arm-none-elf-*; do \
         ln -sf "$f" /usr/local/bin/$(basename "$f"); \
-    done
+    done \
+fi
 
-FROM base AS repo
-ARG BUILD_REPO="https://github.com/adafruit/circuitpython.git"
-ARG BUILD_REF="main"
-ARG BUILD_FORK_REPO="https://github.com/fobe-projects/circuitpython.git"
-ARG BUILD_FORK_REF="main"
-ARG BUILD_PLATFORM
+# Nordic
+RUN if [ "${BUILD_PLATFORM}" = "nordic" ]; then \
+    ARCH=$(dpkg --print-architecture) && \
+    if [ "$ARCH" = "arm64" ]; then \
+        TOOLCHAIN_URL="https://files.nordicsemi.com/artifactory/swtools/external/nrfutil/executables/aarch64-unknown-linux-gnu/nrfutil"; \
+    elif [ "$ARCH" = "amd64" ]; then \
+        TOOLCHAIN_URL="https://files.nordicsemi.com/artifactory/swtools/external/nrfutil/executables/x86_64-unknown-linux-gnu/nrfutil"; \
+    else \
+        echo "Unsupported architecture: $ARCH"; \
+        exit 1; \
+    fi && curl -fsSL "$TOOLCHAIN_URL" -o nrfutil;\
+    chmod +x nrfutil; \
+    ./nrfutil install nrf5sdk-tools; \
+    mv nrfutil /usr/local/bin; \
+    nrfutil -V; \
+fi
 
-WORKDIR /workspace
-
-RUN git config --global --add safe.directory /workspace
-RUN git clone --depth 1 --filter=tree:0 "${BUILD_REPO}" /workspace
-RUN git checkout "${BUILD_REF}"
-RUN git fetch --no-recurse-submodules --shallow-since="2021-07-01" --tags "${BUILD_REPO}" HEAD
-RUN git fetch --no-recurse-submodules --shallow-since="2021-07-01" origin
-RUN git repack -d
-RUN git remote add fork "${BUILD_FORK_REPO}" && git fetch fork --filter=tree:0
-RUN git checkout -b fork-branch "fork/${BUILD_FORK_REF}"
-
-RUN pip3 install --upgrade -r requirements-dev.txt && pip3 install --upgrade -r requirements-doc.txt
-RUN pip3 install --upgrade huffman
-
-RUN python tools/ci_fetch_deps.py ${BUILD_PLATFORM}
-
+# Espressif IDF
 ENV IDF_PATH=/workspace/ports/espressif/esp-idf
 ENV IDF_TOOLS_PATH=/workspace/.idf_tools
 ENV ESP_ROM_ELF_DIR=/workspace/.idf_tools
-RUN git submodule update --init --depth=1 --recursive $IDF_PATH
+RUN if [ "${BUILD_PLATFORM}" = "espressif" ]; then \
+    git submodule update --init --depth=1 --recursive ${IDF_PATH}; \
+    $IDF_PATH/install.sh; \
+    bash -c "source ${IDF_PATH}/export.sh && pip3 install --upgrade minify-html jsmin sh requests-cache"; \
+    rm -rf $IDF_TOOLS_PATH/dist; \
+fi
 
-COPY entrypoint.sh /entrypoint.sh
+# Litex
+RUN if [ "${BUILD_PLATFORM}" = "litex" ]; then \
+    ARCH=$(dpkg --print-architecture) && \
+    if [ "$ARCH" = "amd64" ]; then \
+        TOOLCHAIN_URL="https://static.dev.sifive.com/dev-tools/riscv64-unknown-elf-gcc-8.3.0-2019.08.0-x86_64-linux-centos6.tar.gz"; \
+    else \
+        echo "Unsupported architecture: $ARCH"; \
+        exit 1; \
+    fi && curl -fsSL "$TOOLCHAIN_URL" -o riscv64-unknown-elf-gcc-8.3.0-2019.08.0-x86_64-linux-centos6.tar.gz;\
+    tar -C /usr --strip-components=1 -xaf riscv64-unknown-elf-gcc-8.3.0-2019.08.0-x86_64-linux-centos6.tar.gz; \
+    rm -rf riscv64-unknown-elf-gcc-8.3.0-2019.08.0-x86_64-linux-centos6.tar.gz; \
+fi
+
+COPY --chmod=0755 entrypoint.sh /entrypoint.sh
 ENTRYPOINT [ "/entrypoint.sh" ]
