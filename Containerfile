@@ -43,6 +43,11 @@ ARG ARM_TOOLCHAIN_EABI_VERSION="14.2.rel1"
 ARG ARM_TOOLCHAIN_ELF_VERSION="13.3.rel1"
 ARG BUILD_PLATFORM
 
+# Broadcom
+RUN if [ "${BUILD_PLATFORM}" = "broadcom" ]; then \
+    git -C ports/broadcom/firmware fetch --all --tags; \
+fi
+
 RUN if [ "${BUILD_PLATFORM}" != "zephyr-cp" ]; then \
     make -C ports/"${BUILD_PLATFORM}" fetch-port-submodules; \
 fi

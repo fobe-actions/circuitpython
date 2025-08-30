@@ -33,7 +33,7 @@ jobs:
           # - renode
           # - silabs
           # - stm
-          - zephyr-cp
+          # - zephyr-cp
     uses: ./.github/workflows/docker_manifest.yml
     with:
       cpy_platform: ${{ matrix.cpy_platform }}
