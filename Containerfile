@@ -23,14 +23,12 @@ RUN git config --global --add safe.directory /workspace \
     && git config --global protocol.file.allow always \
     && git clone --depth 1 --filter=tree:0 "${BUILD_REPO}" /workspace \
     && cd /workspace && git checkout "${BUILD_REF}" \
+    && git remote add fork "${BUILD_FORK_REPO}" \
+    && git fetch fork --filter=tree:0 \
+    && git checkout -b fork-branch "fork/${BUILD_FORK_REF}" \
     && git submodule update --init --filter=blob:none data extmod lib tools frozen \
     && git fetch --no-recurse-submodules --shallow-since="2021-07-01" --tags "${BUILD_REPO}" HEAD \
     && git fetch --no-recurse-submodules --shallow-since="2021-07-01" origin \
-    && git repack -d \
-    && git remote add fork "${BUILD_FORK_REPO}" \
-    && git fetch fork --filter=tree:0 \
-    && git fetch --filter=tree:0 fork "${BUILD_FORK_REF}" \
-    && git checkout -b fork-branch "fork/${BUILD_FORK_REF}" \
     && git repack -d
 
 RUN pip3 install --upgrade -r requirements-doc.txt \
