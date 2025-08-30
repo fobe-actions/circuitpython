@@ -23,10 +23,10 @@ jobs:
         cpy_platform:
           # - analog
           # - atmel-samd
-          # - broadcom
+          - broadcom
           # - cxd56
           # - espressif
-          - litex
+          # - litex
           # - mimxrt10xx
           # - nordic
           # - raspberrypi

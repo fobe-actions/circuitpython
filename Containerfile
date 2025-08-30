@@ -20,6 +20,7 @@ ARG BUILD_FORK_REF="main"
 WORKDIR /workspace
 
 RUN git config --global --add safe.directory /workspace \
+    && git config --global protocol.file.allow always \
     && git clone --depth 1 --filter=tree:0 "${BUILD_REPO}" /workspace \
     && cd /workspace && git checkout "${BUILD_REF}" \
     && git submodule update --init --filter=blob:none data extmod lib tools frozen \
@@ -129,7 +130,7 @@ RUN if [ "${BUILD_PLATFORM}" = "zephyr-cp" ]; then \
     && west init -l zephyr-config \
     && west update \
     && west zephyr-export \
-    && west packages pip --install \
+    && pip install -r zephyr/scripts/requirements.txt \
     && west sdk install; \
 fi
 
