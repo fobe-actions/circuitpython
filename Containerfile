@@ -68,5 +68,10 @@ RUN pip3 install --upgrade huffman
 
 RUN python tools/ci_fetch_deps.py ${BUILD_PLATFORM}
 
+ENV IDF_PATH=/workspace/ports/espressif/esp-idf
+ENV IDF_TOOLS_PATH=/workspace/.idf_tools
+ENV ESP_ROM_ELF_DIR=/workspace/.idf_tools
+RUN git submodule update --init --depth=1 --recursive $IDF_PATH
+
 COPY entrypoint.sh /entrypoint.sh
 ENTRYPOINT [ "/entrypoint.sh" ]
