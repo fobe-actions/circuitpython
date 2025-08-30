@@ -29,7 +29,7 @@ RUN git config --global --add safe.directory /workspace \
     && git repack -d \
     && git remote add fork "${BUILD_FORK_REPO}" \
     && git fetch fork --filter=tree:0 \
-    && git fetch --no-recurse-submodules --filter=tree:0 fork "${BUILD_FORK_REF}" \
+    && git fetch --filter=tree:0 fork "${BUILD_FORK_REF}" \
     && git checkout -b fork-branch "fork/${BUILD_FORK_REF}" \
     && git repack -d
 
@@ -42,12 +42,6 @@ FROM repo AS port
 ARG ARM_TOOLCHAIN_EABI_VERSION="14.2.rel1"
 ARG ARM_TOOLCHAIN_ELF_VERSION="13.3.rel1"
 ARG BUILD_PLATFORM
-
-# Broadcom
-RUN if [ "${BUILD_PLATFORM}" = "broadcom" ]; then \
-    git submodule sync --recursive; \
-    git submodule update --init --recursive --filter=tree:0 ports/broadcom/firmware; \
-fi
 
 RUN if [ "${BUILD_PLATFORM}" != "zephyr-cp" ]; then \
     make -C ports/"${BUILD_PLATFORM}" fetch-port-submodules; \
