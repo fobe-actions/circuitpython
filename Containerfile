@@ -1,0 +1,72 @@
+FROM python:3.13-bookworm AS base
+
+ENV PIP_ROOT_USER_ACTION=ignore
+ENV ARM_TOOLCHAIN_EABI_VERSION=14.2.rel1
+ENV ARM_TOOLCHAIN_ELF_VERSION=13.3.rel1
+
+# Apt dependencies
+RUN apt-get update && apt-get install -y \
+    jq jdupes build-essential \
+    libgpiod-dev libyaml-cpp-dev libbluetooth-dev libusb-1.0-0-dev libi2c-dev libuv1-dev \
+    libx11-dev libinput-dev libxkbcommon-x11-dev \
+    openssl libssl-dev libulfius-dev liborcania-dev \
+    git git-lfs gettext cmake mtools floppyd dosfstools \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install ARM toolchain (EABI) based on architecture
+RUN ARCH=$(dpkg --print-architecture) && \
+    if [ "$ARCH" = "arm64" ]; then \
+        TOOLCHAIN_URL="https://developer.arm.com/-/media/Files/downloads/gnu/$ARM_TOOLCHAIN_EABI_VERSION/binrel/arm-gnu-toolchain-$ARM_TOOLCHAIN_EABI_VERSION-aarch64-arm-none-eabi.tar.xz"; \
+    elif [ "$ARCH" = "amd64" ]; then \
+        TOOLCHAIN_URL="https://developer.arm.com/-/media/Files/downloads/gnu/$ARM_TOOLCHAIN_EABI_VERSION/binrel/arm-gnu-toolchain-$ARM_TOOLCHAIN_EABI_VERSION-x86_64-arm-none-eabi.tar.xz"; \
+    else \
+        echo "Unsupported architecture: $ARCH"; \
+        exit 1; \
+    fi && \
+    mkdir -p /usr/local/arm-none-eabi && \
+    curl -fsSL "$TOOLCHAIN_URL" | tar -xJ -C /usr/local/arm-none-eabi --strip-components=1 && \
+    for f in /usr/local/arm-none-eabi/bin/arm-none-eabi-*; do \
+        ln -sf "$f" /usr/local/bin/$(basename "$f"); \
+    done
+
+# Install ARM toolchain (ELF) based on architecture
+RUN ARCH=$(dpkg --print-architecture) && \
+    if [ "$ARCH" = "arm64" ]; then \
+        TOOLCHAIN_URL="https://developer.arm.com/-/media/Files/downloads/gnu/$ARM_TOOLCHAIN_ELF_VERSION/binrel/arm-gnu-toolchain-$ARM_TOOLCHAIN_ELF_VERSION-aarch64-aarch64-none-elf.tar.xz"; \
+    elif [ "$ARCH" = "amd64" ]; then \
+        TOOLCHAIN_URL="https://developer.arm.com/-/media/Files/downloads/gnu/$ARM_TOOLCHAIN_ELF_VERSION/binrel/arm-gnu-toolchain-$ARM_TOOLCHAIN_ELF_VERSION-x86_64-aarch64-none-elf.tar.xz"; \
+    else \
+        echo "Unsupported architecture: $ARCH"; \
+        exit 1; \
+    fi && \
+    mkdir -p /usr/local/arm-none-elf && \
+    curl -fsSL "$TOOLCHAIN_URL" | tar -xJ -C /usr/local/arm-none-elf --strip-components=1 && \
+    for f in /usr/local/arm-none-elf/bin/arm-none-elf-*; do \
+        ln -sf "$f" /usr/local/bin/$(basename "$f"); \
+    done
+
+FROM base AS repo
+ARG BUILD_REPO="https://github.com/adafruit/circuitpython.git"
+ARG BUILD_REF="main"
+ARG BUILD_FORK_REPO="https://github.com/fobe-projects/circuitpython.git"
+ARG BUILD_FORK_REF="main"
+ARG BUILD_PLATFORM
+
+WORKDIR /workspace
+
+RUN git config --global --add safe.directory /workspace
+RUN git clone --depth 1 --filter=tree:0 "${BUILD_REPO}" /workspace
+RUN git checkout "${BUILD_REF}"
+RUN git fetch --no-recurse-submodules --shallow-since="2021-07-01" --tags "${BUILD_REPO}" HEAD
+RUN git fetch --no-recurse-submodules --shallow-since="2021-07-01" origin
+RUN git repack -d
+RUN git remote add fork "${BUILD_FORK_REPO}" && git fetch fork --filter=tree:0
+RUN git checkout -b fork-branch "fork/${BUILD_FORK_REF}"
+
+RUN pip3 install --upgrade -r requirements-dev.txt && pip3 install --upgrade -r requirements-doc.txt
+RUN pip3 install --upgrade huffman
+
+RUN python tools/ci_fetch_deps.py ${BUILD_PLATFORM}
+
+COPY entrypoint.sh /entrypoint.sh
+ENTRYPOINT [ "/entrypoint.sh" ]
