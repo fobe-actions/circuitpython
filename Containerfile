@@ -15,8 +15,6 @@ RUN apt-get update && apt-get install -y \
 FROM base AS repo
 ARG BUILD_REPO="https://github.com/adafruit/circuitpython.git"
 ARG BUILD_REF="main"
-ARG BUILD_FORK_REPO="https://github.com/fobe-projects/circuitpython.git"
-ARG BUILD_FORK_REF="main"
 
 WORKDIR /workspace
 
@@ -134,6 +132,9 @@ RUN if [ "${BUILD_PLATFORM}" = "zephyr-cp" ]; then \
 fi
 
 FROM port AS fork
+
+ARG BUILD_FORK_REPO="https://github.com/fobe-projects/circuitpython.git"
+ARG BUILD_FORK_REF="main"
 
 RUN git config --global --add safe.directory /workspace \
     && git config --global protocol.file.allow always \

@@ -22,22 +22,22 @@ make -j"$(nproc)" -C mpy-cross
 
 # Espressif IDF
 if [[ ${CPY_PLATFORM} == "espressif" ]]; then
-    export IDF_PATH=/workspace/ports/espressif/esp-idf
-    export IDF_TOOLS_PATH=/workspace/.idf_tools
-    export ESP_ROM_ELF_DIR=/workspace/.idf_tools
-    source "${IDF_PATH}/export.sh"
+	export IDF_PATH=/workspace/ports/espressif/esp-idf
+	export IDF_TOOLS_PATH=/workspace/.idf_tools
+	export ESP_ROM_ELF_DIR=/workspace/.idf_tools
+	source "${IDF_PATH}/export.sh"
 fi
 
 # Build
 if [[ ${CPY_TARGET} == "build" ]]; then
-    echo "Building CircuitPython: ${CPY_PLATFORM}:${CPY_BOARD}"
-    make -j"$(nproc)" -C "ports/${CPY_PLATFORM}" ${CPY_FLAGS} BOARD="${CPY_BOARD}" DEBUG="${CPY_DEBUG}" TRANSLATION="${CPY_TRANSLATION}"
-    echo "Build artifacts are located at: /workspace/ports/${CPY_PLATFORM}/build-${CPY_BOARD}"
+	echo "Building CircuitPython: ${CPY_PLATFORM}:${CPY_BOARD}"
+	make -j"$(nproc)" -C "ports/${CPY_PLATFORM}" "${CPY_FLAGS}" BOARD="${CPY_BOARD}" DEBUG="${CPY_DEBUG}" TRANSLATION="${CPY_TRANSLATION}"
+	echo "Build artifacts are located at: /workspace/ports/${CPY_PLATFORM}/build-${CPY_BOARD}"
 fi
 
 # Release
 if [[ ${CPY_TARGET} == "release" ]]; then
-    echo "Building CircuitPython release: ${CPY_PLATFORM}:${CPY_BOARDS}"
-    cd ./tools && BOARDS="${CPY_BOARDS}" python3 -u build_release_files.py
-    echo "Build artifacts are located at: /workspace/bin"
+	echo "Building CircuitPython release: ${CPY_PLATFORM}:${CPY_BOARDS}"
+	cd ./tools && BOARDS="${CPY_BOARDS}" python3 -u build_release_files.py
+	echo "Build artifacts are located at: /workspace/bin"
 fi

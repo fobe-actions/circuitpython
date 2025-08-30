@@ -27,9 +27,20 @@ jobs:
       push: true
     secrets: inherit
 
+  docker-arm64:
+    if: inputs.cpy_platform != 'litex'
+    uses: ./.github/workflows/docker_build.yml
+    with:
+      cpy_platform: ${{ inputs.cpy_platform }}
+      platform: linux/arm64
+      runs-on: ubuntu-24.04-arm
+      push: true
+    secrets: inherit
+
   docker-manifest:
     needs:
       - docker-amd64
+      - docker-arm64
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
@@ -59,3 +70,4 @@ jobs:
           push: true
           sources: |
             ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@${{ needs.docker-amd64.outputs.digest }}
+            ${{ inputs.cpy_platform != 'litex' && env.REGISTRY }}/${{ inputs.cpy_platform != 'litex' && env.IMAGE_NAME }}@${{ inputs.cpy_platform != 'litex' && needs.docker-arm64.outputs.digest }}

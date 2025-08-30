@@ -14,19 +14,19 @@ jobs:
       fail-fast: false
       matrix:
         cpy_platform:
-          - analog
-          - atmel-samd
-          - broadcom
-          - cxd56
+          # - analog
+          # - atmel-samd
+          # - broadcom
+          # - cxd56
           - espressif
-          - litex
-          - mimxrt10xx
+          # - litex
+          # - mimxrt10xx
           - nordic
-          - raspberrypi
-          - renode
-          - silabs
-          - stm
-          - zephyr-cp
+          # - raspberrypi
+          # - renode
+          # - silabs
+          # - stm
+          # - zephyr-cp
     uses: ./.github/workflows/docker_build.yml
     with:
       cpy_platform: ${{ matrix.cpy_platform }}

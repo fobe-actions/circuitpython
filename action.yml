@@ -1,0 +1,52 @@
+name: Setup Circuitpython Port Builder Composite Action
+description: Port builder actions for Circuitpython steps
+author: FoBE Studio
+
+inputs:
+  cpy_platform:
+    description: The Circuitpython platform to build (espressif, nordic)
+    required: true
+  cpy_target:
+    description: The Circuitpython run target (default is 'build')
+    required: false
+    default: build
+  cpy_board:
+    description: The Circuitpython board to build for build target
+    required: false
+  cpy_boards:
+    description: The Circuitpython board to build for release target
+    required: false
+
+runs:
+  using: composite
+  steps:
+    - id: validate_inputs
+      run: |
+        if [[ "${{ inputs.cpy_target }}" == "build" && -z "${{ inputs.cpy_board }}" ]]; then
+          echo "Error: 'cpy_board' must be provided when 'cpy_target' is 'build'."
+          exit 1
+        fi
+        if [[ "${{ inputs.cpy_target }}" == "release" && -z "${{ inputs.cpy_boards }}" ]]; then
+          echo "Error: 'cpy_boards' must be provided when 'cpy_target' is 'release'."
+          exit 1
+        fi
+      shell: bash
+    - id: build_circuitpython
+      run: |
+        docker run --rm \
+          --env GITHUB_ACTIONS \
+          --env GITHUB_SHA \
+          --env CPY_PLATFORM \
+          --env CPY_TARGET \
+          --env CPY_BOARD \
+          --env CPY_BOARDS \
+          -v $GITHUB_WORKSPACE/bin:/workspace/bin \
+          -v $GITHUB_WORKSPACE/build/${{ inputs.cpy_board }}:/workspace/ports/${{ inputs.cpy_platform }}/build-${{ inputs.cpy_board }} \
+          ghcr.io/fobe-projects/action-circuitpython-builder:main-${{ inputs.cpy_platform }}
+      shell: bash
+      env:
+        GITHUB_SHA: ${{ github.sha }}
+        CPY_PLATFORM: ${{ inputs.cpy_platform }}
+        CPY_TARGET: ${{ inputs.cpy_target }}
+        CPY_BOARD: ${{ inputs.cpy_board }}
+        CPY_BOARDS: ${{ inputs.cpy_boards }}
