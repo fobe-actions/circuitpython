@@ -1,26 +1,81 @@
 #!/usr/bin/env bash
+
 set -euo pipefail
 
-# Define vars
-GITHUB_ACTIONS=${GITHUB_ACTIONS:-false}
-GITHUB_SHA=${GITHUB_SHA:-"main"}
+WORKSPACE=/workspace
+JOBS=$(nproc)
 
-# Inputs
-CPY_TARGET=${CPY_TARGET:-"build"}
-CPY_PLATFORM=${CPY_PLATFORM}
-CPY_BOARD=${CPY_BOARD}
+# Define vars (use safe defaults so -u won't fail)
+: "${GITHUB_ACTIONS:=false}"
+# Inputs (provide safe defaults)
+: "${REPO_REMOTE:=origin}"
+: "${REPO_REF:=main}"
+: "${BOARD:=}"
+: "${TRANSLATION:=en_US}"
 
-git checkout "$GITHUB_SHA"
-python tools/ci_fetch_deps.py ${CPY_PLATFORM}
+# Reset to the target SHA
+git fetch upstream --tags --prune --force
+git fetch origin --tags --prune --force
+git fetch "${REPO_REMOTE}" "${REPO_REF}"
+git reset --hard FETCH_HEAD
+git repack -d
+
 pip3 install --upgrade -r requirements-dev.txt
 pip3 install --upgrade -r requirements-doc.txt
-make -j$(nproc) -C mpy-cross
+
+FW_TAG=$(python3 py/version.py)
+# trunk-ignore(shellcheck/SC2312)
+echo "Repository firmware CircuitPython version: ${FW_TAG}"
+
+# Espressif IDF
+if [[ ${CPY_PORT} == "espressif" ]]; then
+	export IDF_PATH=/workspace/ports/espressif/esp-idf
+	export IDF_TOOLS_PATH=/workspace/.idf_tools
+	export ESP_ROM_ELF_DIR=/workspace/.idf_tools
+	# trunk-ignore(shellcheck/SC1091)
+	source "${IDF_PATH}/export.sh"
+fi
+
+make -j"${JOBS}" -C mpy-cross
+make -C ports/"${CPY_PORT}" fetch-port-submodules
+mkdir -p "${WORKSPACE}/bin"
 
 # Build
-if [ "$CPY_TARGET" = "build" ]; then
-    echo "Building CircuitPython: $CPY_PLATFORM:$CPY_BOARD"
-    make -j$(nproc) -C ports/"$CPY_PLATFORM" BOARD="$CPY_BOARD"
-    mkdir -p .build
-    mv ports/"$CPY_PLATFORM"/build-"$CPY_BOARD"/* .build/
-    echo "Build artifacts are located at: .build"
+echo "Build ${CPY_PORT} firmware: ${BOARD}"
+mkdir -p "${WORKSPACE}/bin"
+
+function copy_artefacts {
+    local dest_dir=$1
+    local descr=$2
+    local fw_tag=$3
+    local build_dir=$4
+    shift 4
+    for ext in "$@"; do
+        dest=${dest_dir}/${descr}-${fw_tag}.${ext}
+        if [[ -r ${build_dir}/firmware.${ext} ]]; then
+            mv "${build_dir}"/firmware."${ext}" "${dest}"
+            elif [[ -r ${build_dir}/circuitpython.${ext} ]]; then
+            # esp32 has micropython.elf, etc
+            mv "${build_dir}"/circuitpython."${ext}" "${dest}"
+            # trunk-ignore(shellcheck/SC2292)
+            # trunk-ignore(shellcheck/SC2166)
+            elif [ "${ext}" = app-bin -a -r "${build_dir}"/circuitpython-firmware.bin ]; then
+            # esp32 has circuitpython-firmware.bin which is just the application
+            mv "${build_dir}"/circuitpython-firmware.bin "${dest}"
+        fi
+    done
+}
+
+function build_board {
+    echo "building ${BOARD}"
+    make -j"${JOBS}" -C ports/"${CPY_PORT}" BOARD="${BOARD}" TRANSLATION="${TRANSLATION}"
+    copy_artefacts "${WORKSPACE}/bin" "${BOARD}" "${FW_TAG}" ports/"${CPY_PORT}"/build-"${BOARD}" "$@"
+}
+
+if [[ ${CPY_PORT} == "espressif" ]]; then
+    build_board bin elf map uf2 app-bin
+fi
+
+if [[ ${CPY_PORT} == "nordic" ]]; then
+    build_board bin hex uf2
 fi
