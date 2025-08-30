@@ -45,7 +45,8 @@ ARG BUILD_PLATFORM
 
 # Broadcom
 RUN if [ "${BUILD_PLATFORM}" = "broadcom" ]; then \
-    git -C ports/broadcom/firmware fetch --all --tags; \
+    git submodule sync --recursive; \
+    git submodule update --init --recursive --filter=tree:0 ports/broadcom/firmware; \
 fi
 
 RUN if [ "${BUILD_PLATFORM}" != "zephyr-cp" ]; then \
