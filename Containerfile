@@ -9,6 +9,7 @@ RUN apt-get update && apt-get install -y \
     libx11-dev libinput-dev libxkbcommon-x11-dev \
     openssl libssl-dev libulfius-dev liborcania-dev \
     git git-lfs gettext cmake mtools floppyd dosfstools ninja-build \
+    parted zip \
     && rm -rf /var/lib/apt/lists/*
 
 FROM base AS repo
