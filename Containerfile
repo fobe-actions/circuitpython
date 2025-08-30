@@ -42,7 +42,9 @@ ARG ARM_TOOLCHAIN_EABI_VERSION="14.2.rel1"
 ARG ARM_TOOLCHAIN_ELF_VERSION="13.3.rel1"
 ARG BUILD_PLATFORM
 
-RUN make -C ports/"${BUILD_PLATFORM}" fetch-port-submodules
+RUN if [ "${BUILD_PLATFORM}" != "zephyr-cp" ]; then \
+    make -C ports/"${BUILD_PLATFORM}" fetch-port-submodules; \
+fi
 
 RUN if [ "${BUILD_PLATFORM}" != "espressif" ] && [ "${BUILD_PLATFORM}" != "zephyr-cp" ] && [ "${BUILD_PLATFORM}" != "litex" ] && [ "${BUILD_PLATFORM}" != "none" ]; then \
     ARCH=$(dpkg --print-architecture) && \
@@ -118,6 +120,17 @@ RUN if [ "${BUILD_PLATFORM}" = "litex" ]; then \
     fi && curl -fsSL "$TOOLCHAIN_URL" -o riscv64-unknown-elf-gcc-8.3.0-2019.08.0-x86_64-linux-centos6.tar.gz;\
     tar -C /usr --strip-components=1 -xaf riscv64-unknown-elf-gcc-8.3.0-2019.08.0-x86_64-linux-centos6.tar.gz; \
     rm -rf riscv64-unknown-elf-gcc-8.3.0-2019.08.0-x86_64-linux-centos6.tar.gz; \
+fi
+
+# Zephyr
+RUN if [ "${BUILD_PLATFORM}" = "zephyr-cp" ]; then \
+    cd ports/zephyr-cp \
+    && pip install west \
+    && west init -l zephyr-config \
+    && west update \
+    && west zephyr-export \
+    && west packages pip --install \
+    && west sdk install; \
 fi
 
 COPY --chmod=0755 entrypoint.sh /entrypoint.sh

@@ -28,6 +28,7 @@ jobs:
     secrets: inherit
 
   docker-arm64:
+    if: ${{ inputs.cpy_platform != 'litex' }}
     uses: ./.github/workflows/docker_build.yml
     with:
       cpy_platform: ${{ inputs.cpy_platform }}
@@ -60,8 +61,8 @@ jobs:
             main-${{ inputs.cpy_platform }}
           flavor: latest=false
 
-      - name: Create Docker manifest
-        id: manifest_docker
+      - name: Create Docker manifest AMD64
+        id: manifest_docker_amd64
         uses: int128/docker-manifest-create-action@v2
         with:
           tags: |
@@ -69,4 +70,14 @@ jobs:
           push: true
           sources: |
             ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@${{ needs.docker-amd64.outputs.digest }}
+
+      - name: Create Docker manifest ARM64
+        if: ${{ inputs.cpy_platform != 'litex' }}
+        id: manifest_docker_arm64
+        uses: int128/docker-manifest-create-action@v2
+        with:
+          tags: |
+            ${{ steps.meta_docker.outputs.tags }}
+          push: true
+          sources: |
             ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@${{ needs.docker-arm64.outputs.digest }}
