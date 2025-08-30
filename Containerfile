@@ -132,5 +132,14 @@ RUN if [ "${BUILD_PLATFORM}" = "zephyr-cp" ]; then \
     && west sdk install; \
 fi
 
+FROM port AS fork
+
+RUN git config --global --add safe.directory /workspace \
+    && git config --global protocol.file.allow always \
+    && git remote add fork "${BUILD_FORK_REPO}" \
+    && git fetch fork --filter=tree:0 \
+    && git checkout -b fork-branch "fork/${BUILD_FORK_REF}" \
+    && git repack -d
+
 COPY --chmod=0755 entrypoint.sh /entrypoint.sh
 ENTRYPOINT [ "/entrypoint.sh" ]
