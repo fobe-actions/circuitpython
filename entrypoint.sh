@@ -35,7 +35,7 @@ fi
 make -j"${JOBS}" -C mpy-cross
 make -C ports/"${CPY_PORT}" fetch-port-submodules
 
-FW_TAG=$(python3 py/version.py)
+FW_TAG="-${FW_DATE}-$(python3 py/version.py)"
 echo "Repository firmware CircuitPython version: ${FW_TAG}"
 
 
@@ -50,7 +50,7 @@ function copy_artefacts {
     local build_dir=$4
     shift 4
     for ext in "$@"; do
-        dest=${dest_dir}/${descr}-${fw_tag}.${ext}
+        dest=${dest_dir}/${descr}${fw_tag}.${ext}
         if [[ -r ${build_dir}/firmware.${ext} ]]; then
             mv "${build_dir}"/firmware."${ext}" "${dest}"
             elif [[ -r ${build_dir}/circuitpython.${ext} ]]; then
