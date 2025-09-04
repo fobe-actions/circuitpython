@@ -23,10 +23,6 @@ git repack -d
 pip3 install --upgrade -r requirements-dev.txt
 pip3 install --upgrade -r requirements-doc.txt
 
-FW_TAG=$(python3 py/version.py)
-# trunk-ignore(shellcheck/SC2312)
-echo "Repository firmware CircuitPython version: ${FW_TAG}"
-
 # Espressif IDF
 if [[ ${CPY_PORT} == "espressif" ]]; then
 	export IDF_PATH=/workspace/ports/espressif/esp-idf
@@ -38,7 +34,10 @@ fi
 
 make -j"${JOBS}" -C mpy-cross
 make -C ports/"${CPY_PORT}" fetch-port-submodules
-mkdir -p "${WORKSPACE}/bin"
+
+FW_TAG=$(python3 py/version.py)
+echo "Repository firmware CircuitPython version: ${FW_TAG}"
+
 
 # Build
 echo "Build ${CPY_PORT} firmware: ${BOARD}"
@@ -55,7 +54,6 @@ function copy_artefacts {
         if [[ -r ${build_dir}/firmware.${ext} ]]; then
             mv "${build_dir}"/firmware."${ext}" "${dest}"
             elif [[ -r ${build_dir}/circuitpython.${ext} ]]; then
-            # esp32 has micropython.elf, etc
             mv "${build_dir}"/circuitpython."${ext}" "${dest}"
             # trunk-ignore(shellcheck/SC2292)
             # trunk-ignore(shellcheck/SC2166)
