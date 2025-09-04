@@ -35,6 +35,7 @@ fi
 make -j"${JOBS}" -C mpy-cross
 make -C ports/"${CPY_PORT}" fetch-port-submodules
 
+FW_DATE=$(date '+%Y%m%d')
 FW_TAG="-${FW_DATE}-$(python3 py/version.py)"
 echo "Repository firmware CircuitPython version: ${FW_TAG}"
 
