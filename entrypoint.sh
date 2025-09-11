@@ -32,6 +32,7 @@ if [[ ${CPY_PORT} == "espressif" ]]; then
     /workspace/ports/espressif/esp-idf/install.sh
 	# trunk-ignore(shellcheck/SC1091)
 	source "${IDF_PATH}/export.sh"
+    pip3 install --upgrade minify-html jsmin sh requests-cache
 fi
 
 make -j"${JOBS}" -C mpy-cross
