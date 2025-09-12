@@ -31,6 +31,7 @@ if [[ ${CPY_PORT} == "espressif" ]]; then
 	export IDF_PATH=/workspace/ports/espressif/esp-idf
 	export IDF_TOOLS_PATH=/workspace/.idf_tools
 	export ESP_ROM_ELF_DIR=/workspace/.idf_tools
+    cd ${IDF_PATH} && git submodule update --init --depth=1 --recursive && git repack -d && cd /workspace
     /workspace/ports/espressif/esp-idf/install.sh > /dev/null 2>&1
 	# trunk-ignore(shellcheck/SC1091)
 	source "${IDF_PATH}/export.sh"
