@@ -23,25 +23,23 @@ git repack -d
 pip3 install --upgrade -r requirements-dev.txt
 pip3 install --upgrade -r requirements-doc.txt
 
+make -j"${JOBS}" -C mpy-cross
+make -C ports/"${CPY_PORT}" fetch-port-submodules
+
 # Espressif IDF
 if [[ ${CPY_PORT} == "espressif" ]]; then
 	export IDF_PATH=/workspace/ports/espressif/esp-idf
-    git submodule update --init --depth=1 --recursive ${IDF_PATH}
 	export IDF_TOOLS_PATH=/workspace/.idf_tools
 	export ESP_ROM_ELF_DIR=/workspace/.idf_tools
-    /workspace/ports/espressif/esp-idf/install.sh
+    /workspace/ports/espressif/esp-idf/install.sh > /dev/null 2>&1
 	# trunk-ignore(shellcheck/SC1091)
 	source "${IDF_PATH}/export.sh"
     pip3 install --upgrade minify-html jsmin sh requests-cache
 fi
 
-make -j"${JOBS}" -C mpy-cross
-make -C ports/"${CPY_PORT}" fetch-port-submodules
-
 FW_DATE=$(date '+%Y%m%d')
 FW_TAG="-${FW_DATE}-$(python3 py/version.py)"
 echo "Repository firmware CircuitPython version: ${FW_TAG}"
-
 
 # Build
 echo "Build ${CPY_PORT} firmware: ${BOARD}"
